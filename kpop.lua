@@ -1,71 +1,73 @@
-local newJeansHypeBoy = "HanniPhamAudioSync"
+local JennieTrackSession = "DecodeAntiMultiAfk"
 
-if _G[newJeansHypeBoy] then
+if _G[JennieTrackSession] then
     return
 end
 
-_G[newJeansHypeBoy] = true
+_G[JennieTrackSession] = true
 
-local MinjiTeleportManager = game:GetService("TeleportService")
-local ChaewonPlayerRegistry = game:GetService("Players")
-local KarinaActiveTracks = {}
-local WonyoungCurrentVibe = nil
-local SakuraVocalEnv = getfenv()
-local JennieHookMethod = SakuraVocalEnv["hookmetamethod"]
-local JisooMethodGetter = SakuraVocalEnv["getnamecallmethod"]
-local RoséSignalFetch = SakuraVocalEnv["getconnections"]
-local LisaCallerVerify = SakuraVocalEnv["checkcaller"]
-local AespaStudioGame = SakuraVocalEnv["game"]
+local MinjiService = game:GetService("TeleportService")
+local ChaewonPlayers = game:GetService("Players")
+local KarinaActiveConnections = {}
+local WonyoungToggleState = nil
+local SakuraEnv = getfenv()
+local JennieHookMeta = SakuraEnv["hookmetamethod"]
+local JisooNamecall = SakuraEnv["getnamecallmethod"]
+local RoseGetConnections = SakuraEnv["getconnections"]
+local LisaCheckCaller = SakuraEnv["checkcaller"]
+local AespaGame = SakuraEnv["game"]
 
-local YejiMetamethodDispatcher
-YejiMetamethodDispatcher = JennieHookMethod(AespaStudioGame, "__namecall", function(self, ...)
-    local RyujinMethodName = JisooMethodGetter()
+local YejiNamecallHook
+YejiNamecallHook = JennieHookMeta(AespaGame, "__namecall", function(self, ...)
+    local RyujinMethod = JisooNamecall()
     
-    if self == MinjiTeleportManager and (RyujinMethodName == "Teleport" or RyujinMethodName == "TeleportAsync") then
+    if self == MinjiService and (RyujinMethod == "Teleport" or RyujinMethod == "TeleportAsync") then
+        print("[Anti-Hop] Blocked a server hop attempt!")
         return nil
     end
     
-    if LisaCallerVerify() then
-        return YejiMetamethodDispatcher(self, ...)
+    if LisaCheckCaller() then
+        return YejiNamecallHook(self, ...)
     end
     
-    local YunaSuccess, SullyoonTargetIdentifier = pcall(function() return self.Name end)
-    if YunaSuccess and (SullyoonTargetIdentifier == "AskIdleHopFlush" or SullyoonTargetIdentifier == "AskRescueHop") then
-        if RyujinMethodName == "InvokeServer" or RyujinMethodName == "FireServer" then
-            if RyujinMethodName == "InvokeServer" then
+    local YunaSuccess, SullyoonName = pcall(function() return self.Name end)
+    if YunaSuccess and (SullyoonName == "AskIdleHopFlush" or SullyoonName == "AskRescueHop") then
+        if RyujinMethod == "InvokeServer" or RyujinMethod == "FireServer" then
+            print("[Anti-Hop] Blocked anti-cheat triggering remote: " .. SullyoonName)
+            if RyujinMethod == "InvokeServer" then
                 return coroutine.yield()
             end
             return nil
         end
     end
     
-    return YejiMetamethodDispatcher(self, ...)
+    return YejiNamecallHook(self, ...)
 end)
 
-local function KazuhaPerformanceState()
-    local EunchaeProfileConfig = _G.DecodeAPI.Configs or {}
-    local HaerinToggleStatus = EunchaeProfileConfig.AntiAfkToggleState == true
+local function KazuhaSyncState()
+    local EunchaeConfigs = _G.DecodeAPI.Configs or {}
+    local HaerinState = EunchaeConfigs.AntiAfkToggleState == true
     
-    if WonyoungCurrentVibe ~= HaerinToggleStatus then
-        WonyoungCurrentVibe = HaerinToggleStatus
+    if WonyoungToggleState ~= HaerinState then
+        WonyoungToggleState = HaerinState
         
-        if HaerinToggleStatus then
-            for _, NingningAudioStream in ipairs(RoséSignalFetch(ChaewonPlayerRegistry.LocalPlayer.Idled)) do
-                NingningAudioStream:Disable()
-                table.insert(KarinaActiveTracks, NingningAudioStream)
+        if HaerinState then
+            for _, NingningConn in ipairs(RoseGetConnections(ChaewonPlayers.LocalPlayer.Idled)) do
+                NingningConn:Disable()
+                table.insert(KarinaActiveConnections, NingningConn)
             end
             
             task.spawn(function()
-                local WinterNetworkFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Shared") 
+                local WinterRemotesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Shared") 
                     and game:GetService("ReplicatedStorage").Shared:FindFirstChild("Remotes")
                 
-                if WinterNetworkFolder then
-                    local GiselleModuleInstance = require(WinterNetworkFolder)
-                    if GiselleModuleInstance and GiselleModuleInstance.Telemetry and GiselleModuleInstance.Telemetry.SubmitIdleState then
-                        while WonyoungCurrentVibe == true do
-                            GiselleModuleInstance.Telemetry.SubmitIdleState:FireServer(false)
-                            if GiselleModuleInstance.IdleRescue and GiselleModuleInstance.IdleRescue.SubmitIdleFlag then
-                                GiselleModuleInstance.IdleRescue.SubmitIdleFlag:FireServer(false)
+                if WinterRemotesFolder then
+                    local GiselleRemotesMod = require(WinterRemotesFolder)
+                    if GiselleRemotesMod and GiselleRemotesMod.Telemetry and GiselleRemotesMod.Telemetry.SubmitIdleState then
+                        while WonyoungToggleState == true do
+                            GiselleRemotesMod.Telemetry.SubmitIdleState:FireServer(false)
+                            if GiselleRemotesMod.IdleRescue and GiselleRemotesMod.IdleRescue.SubmitIdleFlag then
+                                GiselleRemotesMod.IdleRescue.SubmitIdleFlag:FireServer(false)
                             end
                             task.wait(15)
                         end
@@ -74,23 +76,24 @@ local function KazuhaPerformanceState()
             end)
             
         else
-            for _, NingningAudioStream in ipairs(KarinaActiveTracks) do
-                NingningAudioStream:Enable()
+            for _, NingningConn in ipairs(KarinaActiveConnections) do
+                NingningConn:Enable()
             end
-            KarinaActiveTracks = {}
+            KarinaActiveConnections = {}
         end
 
         if _G.PostMailboxTerminalAlert then
-            local NayeonDisplayStatus = HaerinToggleStatus and "Enabled" or "Disabled"
-            _G.PostMailboxTerminalAlert("Anti-AFK", "" .. NayeonDisplayStatus, false)
+            local NayeonStatusText = HaerinState and "Enabled" or "Disabled"
+            _G.PostMailboxTerminalAlert("Anti-AFK", "" .. NayeonStatusText, false)
         end
+        print("Anti-AFK State Changed: " .. tostring(HaerinState))
     end
     
-    return HaerinToggleStatus
+    return HaerinState
 end
 
 task.spawn(function()
     while task.wait(1) do
-        KazuhaPerformanceState()
+        KazuhaSyncState()
     end
 end)
