@@ -1,1 +1,99 @@
-local P="DecodeAntiMultiAfk"if _G[P]then return end _G[P]=true local G=game:GetService("TeleportService")local z=game:GetService("Players")local j={}local O=nil local W=getfenv()local e=W.hookmetamethod local u=W.getnamecallmethod local x=W.getconnections local h=W.checkcaller local C=W.game local q q=e(C,"__namecall",function(P,...)local z=u()if P==G and((z=="Teleport"or z=="TeleportAsync"))then print("[Anti-Hop] Blocked a server hop attempt!")return nil end if h()then return q(P,...)end local j,O=pcall(function()return P.Name end)if j and((O=="AskIdleHopFlush"or O=="AskRescueHop"))then if z=="InvokeServer"or z=="FireServer"then print("[Anti-Hop] Blocked anti-cheat triggering remote: "..O)if z=="InvokeServer"then return coroutine.yield()end return nil end end return q(P,...)end)local function l()local P=_G.DecodeAPI.Configs or{}local G=P.AntiAfkToggleState==true if O~=G then O=G if G then for P,G in ipairs(x(z.LocalPlayer.Idled))do G:Disable()table.insert(j,G)end task.spawn(function()local P=(game:GetService("ReplicatedStorage")):FindFirstChild("Shared")and(game:GetService("ReplicatedStorage")).Shared:FindFirstChild("Remotes")if P then local G=require(P)if G and(G.Telemetry and G.Telemetry.SubmitIdleState)then while O==true do G.Telemetry.SubmitIdleState:FireServer(false)if G.IdleRescue and G.IdleRescue.SubmitIdleFlag then G.IdleRescue.SubmitIdleFlag:FireServer(false)end task.wait(15)end end end end)else for P,G in ipairs(j)do G:Enable()end j={}end if _G.PostMailboxTerminalAlert then local P=G and"Enabled"or"Disabled"_G.PostMailboxTerminalAlert("Anti-AFK",""..P,false)end print("Anti-AFK State Changed: "..tostring(G))end return G end task.spawn(function()while task.wait(1)do l()end end)
+local JennieTrackSession = "DecodeAntiMultiAfk"
+
+if _G[JennieTrackSession] then
+    return
+end
+
+_G[JennieTrackSession] = true
+
+local MinjiService = game:GetService("TeleportService")
+local ChaewonPlayers = game:GetService("Players")
+local KarinaActiveConnections = {}
+local WonyoungToggleState = nil
+local SakuraEnv = getfenv()
+local JennieHookMeta = SakuraEnv["hookmetamethod"]
+local JisooNamecall = SakuraEnv["getnamecallmethod"]
+local RoseGetConnections = SakuraEnv["getconnections"]
+local LisaCheckCaller = SakuraEnv["checkcaller"]
+local AespaGame = SakuraEnv["game"]
+
+local YejiNamecallHook
+YejiNamecallHook = JennieHookMeta(AespaGame, "__namecall", function(self, ...)
+    local RyujinMethod = JisooNamecall()
+    
+    if self == MinjiService and (RyujinMethod == "Teleport" or RyujinMethod == "TeleportAsync") then
+        print("[Anti-Hop] Blocked a server hop attempt!")
+        return nil
+    end
+    
+    if LisaCheckCaller() then
+        return YejiNamecallHook(self, ...)
+    end
+    
+    local YunaSuccess, SullyoonName = pcall(function() return self.Name end)
+    if YunaSuccess and (SullyoonName == "AskIdleHopFlush" or SullyoonName == "AskRescueHop") then
+        if RyujinMethod == "InvokeServer" or RyujinMethod == "FireServer" then
+            print("[Anti-Hop] Blocked anti-cheat triggering remote: " .. SullyoonName)
+            if RyujinMethod == "InvokeServer" then
+                return coroutine.yield()
+            end
+            return nil
+        end
+    end
+    
+    return YejiNamecallHook(self, ...)
+end)
+
+local function KazuhaSyncState()
+    local EunchaeConfigs = _G.DecodeAPI.Configs or {}
+    local HaerinState = EunchaeConfigs.AntiAfkToggleState == true
+    
+    if WonyoungToggleState ~= HaerinState then
+        WonyoungToggleState = HaerinState
+        
+        if HaerinState then
+            for _, NingningConn in ipairs(RoseGetConnections(ChaewonPlayers.LocalPlayer.Idled)) do
+                NingningConn:Disable()
+                table.insert(KarinaActiveConnections, NingningConn)
+            end
+            
+            task.spawn(function()
+                local WinterRemotesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Shared") 
+                    and game:GetService("ReplicatedStorage").Shared:FindFirstChild("Remotes")
+                
+                if WinterRemotesFolder then
+                    local GiselleRemotesMod = require(WinterRemotesFolder)
+                    if GiselleRemotesMod and GiselleRemotesMod.Telemetry and GiselleRemotesMod.Telemetry.SubmitIdleState then
+                        while WonyoungToggleState == true do
+                            GiselleRemotesMod.Telemetry.SubmitIdleState:FireServer(false)
+                            if GiselleRemotesMod.IdleRescue and GiselleRemotesMod.IdleRescue.SubmitIdleFlag then
+                                GiselleRemotesMod.IdleRescue.SubmitIdleFlag:FireServer(false)
+                            end
+                            task.wait(15)
+                        end
+                    end
+                end
+            end)
+            
+        else
+            for _, NingningConn in ipairs(KarinaActiveConnections) do
+                NingningConn:Enable()
+            end
+            KarinaActiveConnections = {}
+        end
+
+        if _G.PostMailboxTerminalAlert then
+            local NayeonStatusText = HaerinState and "Enabled" or "Disabled"
+            _G.PostMailboxTerminalAlert("Anti-AFK", "" .. NayeonStatusText, false)
+        end
+        print("Anti-AFK State Changed: " .. tostring(HaerinState))
+    end
+    
+    return HaerinState
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        KazuhaSyncState()
+    end
+end)
