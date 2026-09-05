@@ -1,4 +1,4 @@
-local JennieTrackSession = "DecodeAntiMultiAfk"
+local JennieTrackSession = "KPOPARMY2612422"
 
 if _G[JennieTrackSession] then
     return
