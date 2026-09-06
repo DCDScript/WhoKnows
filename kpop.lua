@@ -1,4 +1,3 @@
--- BTS - MAP OF THE SOUL : 7
 local RM = game:GetService("TeleportService")
 local Jin = game:GetService("Players")
 local Suga = Jin.LocalPlayer
@@ -69,7 +68,7 @@ local function LifeGoesOn()
         else
             for SpringDay = 1, #Butter do
                 if Butter[SpringDay] then
-                    local MicDrop, Idnt = pcall(function() Butter[SpringDay]:Enable() end)
+                    pcall(function() Butter[SpringDay]:Enable() end)
                 end
             end
             table.clear(Butter)
@@ -86,6 +85,6 @@ end
 task.spawn(function()
     while true do
         LifeGoesOn()
-        task.wait(2.5)
+        task.wait(5)
     end
 end)
