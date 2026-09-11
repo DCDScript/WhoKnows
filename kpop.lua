@@ -4,105 +4,102 @@ task.spawn(function()
 	end)
 end)
 
-local function StartAntiAfk()
-    if _G.DecodeAPI.AntiAfkLoopActive then return end
-    _G.DecodeAPI.AntiAfkLoopActive = true
-    
-    if _G.PostMailboxTerminalAlert then
-        _G.PostMailboxTerminalAlert("AntiAFK", "Anti-AFK Active", false)
-    end
+if not game:IsLoaded() then game.Loaded:Wait() end
 
-    local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local RunService = game:GetService("RunService")
-    local Player = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
 
-    local idleEvent = Player:FindFirstChild("Idled")
-    if idleEvent then
-        for _, conn in pairs(getconnections(idleEvent)) do
-            pcall(function() conn:Disable() end)
-        end
-    end
+_G.DecodeAPI = _G.DecodeAPI or {}
+_G.DecodeAPI.Configs = _G.DecodeAPI.Configs or {
+    AntiAfkToggleState = true
+}
 
-    local Network = ReplicatedStorage:WaitForChild("Network", 10)
-    local targets = {
-        "Analytics:ReportAfkState",
-        "Analytics:ReportAfkTeleport", 
-        "Analytics:RequestAfkTeleportFlush"
-    }
+local function showPopup(message)
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "AntiAfkNotification"
+    sg.DisplayOrder = 999
+    sg.Parent = CoreGui
 
-    local function blockRemote(name)
-        local remote = Network and Network:FindFirstChild(name)
-        if not remote then return end
-        
-        if remote:IsA("RemoteEvent") then
-            for _, conn in ipairs(getconnections(remote.OnClientEvent)) do
-                pcall(function() conn:Disable() end)
-            end
-        elseif remote:IsA("RemoteFunction") then
-            remote.OnClientInvoke = function(...)
-                return nil
-            end
-        end
-    end
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 60)
+    frame.Position = UDim2.new(0.5, -150, 0.5, -30)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.BorderSizePixel = 0
+    frame.BackgroundTransparency = 1
+    frame.Parent = sg
 
-    for _, name in ipairs(targets) do
-        blockRemote(name)
-        if Network then
-            task.spawn(function()
-                local r = Network:WaitForChild(name, 20)
-                if r then blockRemote(name) end
-            end)
-        end
-    end
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
 
-    task.spawn(function()
-        while _G.DecodeAPI.AntiAfkLoopActive do
-            local configs = _G.DecodeAPI.Configs
-            if configs and configs.AntiAfkToggleState then
-                for _, name in ipairs(targets) do
-                    blockRemote(name)
-                end
-            end
-            task.wait(10)
-        end
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = message
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 20
+    label.TextTransparency = 1
+    label.Parent = frame
+
+    TweenService:Create(frame, TweenInfo.new(0.4), {BackgroundTransparency = 0.15}):Play()
+    TweenService:Create(label, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+
+    task.delay(4.6, function()
+        TweenService:Create(frame, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+        TweenService:Create(label, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+        task.wait(0.4)
+        sg:Destroy()
     end)
+end
 
-    local cam = workspace.CurrentCamera
-    local tick = 0
-    local renderConnection
-    
-    renderConnection = RunService.RenderStepped:Connect(function(dt)
-        if not _G.DecodeAPI.AntiAfkLoopActive then
-            if renderConnection then renderConnection:Disconnect() end
-            return
-        end
+if _G.AntiAfkHopExecuted then
+    showPopup("Already Executed")
+    return
+end
 
-        local configs = _G.DecodeAPI.Configs
-        if configs and configs.AntiAfkToggleState and cam and Player.Character and Player.Character:FindFirstChild("Humanoid") then
-            tick = tick + dt
-            if tick > 30 then
-                tick = 0
-                local c = cam.CFrame
-                cam.CFrame = c * CFrame.fromEulerAnglesXYZ(0, math.rad(0.05), 0)
-                task.wait(0.1)
-                cam.CFrame = c
-            end
-        end
-    end)
+_G.AntiAfkHopExecuted = true
+showPopup("Anti AFK/Hop Configured")
 
+for _, connection in pairs(getconnections(LocalPlayer.Idled)) do
     task.spawn(function()
-        while _G.DecodeAPI.AntiAfkLoopActive do
-            local configs = _G.DecodeAPI.Configs
-            if configs and not configs.AntiAfkToggleState then
-                _G.DecodeAPI.AntiAfkLoopActive = false
+        while task.wait(1) do
+            local isEnabled = _G.DecodeAPI.Configs.AntiAfkToggleState
+            if isEnabled and connection.Enabled then
+                connection:Disable()
+            elseif not isEnabled and not connection.Enabled then
+                connection:Enable()
             end
-            task.wait(1)
-        end
-        
-        if _G.PostMailboxTerminalAlert then
-            _G.PostMailboxTerminalAlert("AntiAFK", "Anti-AFK Disabled", false)
         end
     end)
 end
-StartAntiAfk()
+
+local OldNamecall
+OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local isEnabled = _G.DecodeAPI.Configs.AntiAfkToggleState
+    
+    if isEnabled and (method == "FireServer" or method == "InvokeServer") then
+        local name = tostring(self)
+        if name == "SubmitIdleState" or name == "SubmitIdleFlag" or name == "AskRescueHop" or name == "AskIdleHopFlush" then
+            if method == "InvokeServer" then
+                return true
+            end
+            return nil
+        end
+    end
+    return OldNamecall(self, ...)
+end)
+
+local OldTeleport
+OldTeleport = hookfunction(TeleportService.Teleport, function(self, ...)
+    local isEnabled = _G.DecodeAPI.Configs.AntiAfkToggleState
+    
+    if isEnabled then
+        return nil
+    end
+    return OldTeleport(self, ...)
+end)
