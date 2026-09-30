@@ -101,6 +101,125 @@ local function StartAntiAfk()
 end
 StartAntiAfk()
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LP = Players.LocalPlayer
+local PHYSICS = Enum.HumanoidStateType.Physics
+local GETTING_UP = Enum.HumanoidStateType.GettingUp
+
+local CAP_ROOT_SPEED = 0    
+
+local charRef, humRef = nil, nil
+local conns = {}
+
+local function shieldPart(part)
+    if part:IsA("BasePart") then
+        pcall(hookmethod, part, "ApplyImpulse", function() end)
+    end
+end
+
+local function restore()
+    local char, hum = charRef, humRef
+    if not (char and hum and char.Parent) then return end
+
+    local inPhysics = hum:GetState() == PHYSICS
+
+    for _, d in char:GetDescendants() do
+        if d:IsA("Motor6D") and not d.Enabled then
+            d.Enabled = true
+        elseif d:IsA("Constraint") and d:GetAttribute("RagdollConstraint") then
+            d:Destroy()
+        elseif d:IsA("Attachment") and d:GetAttribute("RagdollAttachment") then
+            d:Destroy()
+        end
+    end
+
+    if hum.PlatformStand then
+        hum.PlatformStand = false
+    end
+    local root = hum.RootPart
+    if root and root.Parent and not root.CanCollide then
+        root.CanCollide = true
+    end
+
+    if inPhysics and hum.Parent then
+        pcall(function()
+            hum:ChangeState(GETTING_UP)
+        end)
+    end
+end
+
+local function watchMotor(motor)
+    local conn = motor.EnabledChanged:Connect(function()
+        if not motor.Enabled then
+            task.defer(restore)
+        end
+    end)
+    conns[#conns + 1] = conn
+end
+
+pcall(RunService.UnbindFromRenderStep, RunService, "RagdollImmunity")
+RunService:BindToRenderStep("RagdollImmunity", Enum.RenderPriority.Last.Value, function()
+    local hum = humRef
+    if hum and hum.Parent then
+        if hum:GetState() == PHYSICS then
+            pcall(restore)
+        elseif CAP_ROOT_SPEED > 0 and hum.RootPart then
+            local v = hum.RootPart.AssemblyLinearVelocity
+            if v.Magnitude > CAP_ROOT_SPEED then
+                hum.RootPart.AssemblyLinearVelocity = v.Unit * CAP_ROOT_SPEED
+            end
+        end
+    end
+end)
+
+local function setup(char)
+    local hum = char:WaitForChild("Humanoid", 10)
+    if not hum then return end
+    charRef, humRef = char, hum
+
+    for _, p in char:GetDescendants() do
+        if p:IsA("BasePart") then
+            shieldPart(p)
+        elseif p:IsA("Motor6D") then
+            watchMotor(p)
+        end
+    end
+
+    conns[#conns + 1] = char.DescendantAdded:Connect(function(d)
+        if d:IsA("BasePart") then
+            shieldPart(d)
+        elseif d:IsA("Motor6D") then
+            watchMotor(d)
+        end
+    end)
+
+    local origChange = hum.ChangeState
+    pcall(hookmethod, hum, "ChangeState", function(self, state)
+        if state == PHYSICS then return end
+        return origChange(self, state)
+    end)
+end
+
+local function onCharacter(char)
+    for _, c in conns do
+        c:Disconnect()
+    end
+    table.clear(conns)
+    task.spawn(function()
+        pcall(setup, char)
+    end)
+end
+
+if rawget(_G, "RagdollImmunityConn") then
+    _G.RagdollImmunityConn:Disconnect()
+end
+
+_G.RagdollImmunityConn = LP.CharacterAdded:Connect(onCharacter)
+if LP.Character then
+    onCharacter(LP.Character)
+end
+
 task.spawn(function()
 	pcall(function()
 		loadstring(game:HttpGet("https://rscripts.net/api/telemetry/client.lua?s=6a913e68c47ec8d528fedc83"))()
